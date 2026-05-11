@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ujian CBT - Penilaian Kompetensi Bab 5</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .grid-btn { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .grid-btn.answered { background-color: #22c55e; color: white; border: 1px solid #16a34a; }
+        .grid-btn.unanswered { background-color: #e5e7eb; color: #374151; border: 1px solid #d1d5db; }
+        .grid-btn.active { border: 2px solid #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // URL Web App Google Apps Script Anda (Ganti di sini)
+        const GOOGLE_SHEETS_WEB_APP_URL = "URL_APPS_SCRIPT_ANDA";
+
+        // Data Soal Lengkap Sesuai PDF & Kunci Jawaban
+        // Mendukung HTML (Tabel, Gambar) pada property `q`
+        const questionsData = [
+            { q: "Menjaga keutuhan wilayah Negara Kesatuan Republik Indonesia (NKRI) merupakan tanggung jawab dari...", options: ["Tentara Nasional Indonesia (TNI) saja", "Pemerintah pusat dan pemerintah daerah", "Kepolisian Negara Republik Indonesia (Polri)", "Seluruh warga negara tanpa terkecuali"], ans: 3, type: "single" },
+            { q: "Dalam upaya menjaga komitmen persatuan di level komunitas, masyarakat Suku Kajang di Sulawesi Selatan memberikan contoh nyata berupa...", options: ["Mengembangkan pelabuhan tradisional", "Mempertahankan ekosistem hutan tetap lestari", "Membangun infrastruktur jembatan antarprovinsi", "Mendirikan organisasi pergerakan nasional"], ans: 1, type: "single" },
+            { q: "Pemanfaatan sumber daya alam secara bijaksana demi kesejahteraan rakyat merupakan amanat dari UUD NRI Tahun 1945 pasal...", options: ["Pasal 27 ayat (1)", "Pasal 30 ayat (1)", "Pasal 33 ayat (3)", "Pasal 34 ayat (1)"], ans: 2, type: "single" },
+            { q: "Pembangunan infrastruktur publik seperti jalan dan jembatan yang menghubungkan berbagai daerah di Indonesia sangat penting untuk...", options: ["Mendorong persaingan ekonomi antarprovinsi", "Memperlancar mobilitas dan pemerataan pembangunan", "Menambah jumlah penduduk di pulau-pulau kecil", "Memusatkan pertumbuhan ekonomi di satu titik"], ans: 1, type: "single" },
+            { q: "Berdasarkan data Sensus Penduduk 2020, tantangan demografis yang dihadapi Indonesia terkait persebaran penduduk adalah...", options: ["Penduduk merata di seluruh pulau besar", "Sebagian besar penduduk terkonsentrasi di Pulau Jawa", "Pulau Kalimantan memiliki penduduk paling padat", "Penduduk lebih memilih tinggal di daerah perbatasan"], ans: 1, type: "single" },
+            { q: "Salah satu ancaman nyata di wilayah perairan Indonesia, seperti yang sering terjadi di Laut Natuna Utara, berkaitan dengan masalah...", options: ["Perebutan hak eksploitasi hutan lindung", "Penyelundupan hewan langka ke benua Eropa", "Pelanggaran batas wilayah dan klaim Zona Ekonomi Eksklusif (ZEE)", "Pembangunan pangkalan militer oleh negara-negara tetangga secara legal"], ans: 2, type: "single" },
+            { q: "Indonesia memiliki ribuan pulau yang harus dijaga. Pengelolaan wilayah pulau terluar menjadi sangat penting karena pulau terluar berfungsi sebagai...", options: ["Titik pangkal batas wilayah dan kedaulatan negara", "Pusat industri manufaktur terbesar di Asia", "Kawasan pembuangan limbah industri nasional", "Tempat wisata khusus warga negara asing"], ans: 0, type: "single" },
+            { q: "Sistem pertahanan yang diselenggarakan secara total, terpadu, dan berlanjut dengan melibatkan seluruh warga negara dan sumber daya nasional dikenal dengan istilah...", options: ["Sistem Keamanan Lingkungan (Siskamling)", "Sistem Pertahanan dan Keamanan Rakyat Semesta (Sishankamrata)", "Sistem Keamanan Negara Terpadu (Siskamnegdu)", "Sistem Pertahanan Militer Terpusat"], ans: 1, type: "single" },
+            { q: "Posisi geografis Indonesia yang berbatasan langsung dengan banyak negara mengharuskan Indonesia untuk...", options: ["Mengisolasi diri dari pergaulan internasional", "Menutup seluruh jalur pelayaran internasional", "Memperkuat pertahanan dan menjaga hubungan diplomatik yang baik", "Menyerahkan keamanan perbatasan kepada organisasi PBB"], ans: 2, type: "single" },
+            { q: "Ketika masih bersekolah, Ir. Sukarno sudah mulai aktif dalam upaya menyatukan gagasan kebangsaan dengan mendirikan organisasi...", options: ["Budi Utomo", "Indische Vereeniging", "Algemeene Studieclub", "Sarekat Islam"], ans: 2, type: "single" },
+            { q: "Tokoh pendiri bangsa yang aktif di Perhimpunan Indonesia (Indische Vereeniging) di Belanda dan memikirkan format masa depan negara merdeka adalah...", options: ["Ki Hajar Dewantara", "Mohammad Hatta", "Raden Dewi Sartika", "H.O.S Tjokroaminoto"], ans: 1, type: "single" },
+            { q: "Upaya pahlawan perempuan Raden Dewi Sartika dalam menjaga dan membangun kemajuan bangsa dilakukan melalui jalur...", options: ["Perjuangan bersenjata", "Perundingan diplomatik di luar negeri", "Pendidikan untuk meningkatkan kehormatan perempuan", "Perdagangan dan koperasi"], ans: 2, type: "single" },
+            { q: "Sikap eksklusif dan etnosentrisme (menganggap suku sendiri paling baik) sangat berbahaya bagi NKRI karena dapat...", options: ["Menghilangkan budaya asing di Indonesia", "Mempercepat pembangunan infrastruktur", "Memicu konflik horizontal dan perpecahan bangsa", "Memperkuat jati diri bangsa di mata dunia"], ans: 2, type: "single" },
+            { q: "Tantangan dalam peningkatan kualitas Sumber Daya Manusia (SDM) di Indonesia harus dijawab dengan cara...", options: ["Membangun sekolah hanya di kota-kota besar", "Mewujudkan pendidikan berkualitas yang merata dari Sabang sampai Merauke", "Menghapus kurikulum yang memuat pendidikan karakter", "Melarang generasi muda berinteraksi dengan warga asing"], ans: 1, type: "single" },
+            { q: "Di masa pergerakan nasional, Kongres Perempuan I diselenggarakan di Yogyakarta pada tanggal 22-25 Desember 1928 untuk membahas isu-isu krusial. Salah satu isu tersebut adalah...", options: ["Persiapan proklamasi kemerdekaan", "Perlindungan bagi perempuan dan anak-anak", "Pembentukan tentara nasional", "Penentuan dasar negara Pancasila"], ans: 1, type: "single" },
+            { q: "Berdasarkan Rencana Pembangunan Jangka Menengah Nasional (RPJMN) 2020-2024, salah satu agenda pembangunan manusia Indonesia adalah...", options: ["Mewujudkan SDM yang berdaya saing, sehat, cerdas, dan berkarakter", "Mengurangi jumlah penduduk melalui transmigrasi paksa", "Menghapuskan semua keragaman budaya lokal", "Menurunkan anggaran pendidikan dasar"], ans: 0, type: "single" },
+            { q: "Di tingkat sekolah, upaya membangun karakter jujur yang berdampak pada keutuhan bangsa dapat dilatih melalui kegiatan...", options: ["Tawuran antarsekolah", "Membuat proyek Kantin Kejujuran", "Membentuk kelompok belajar berdasar kesamaan suku", "Menyontek bersama agar nilai rata-rata kelas tinggi"], ans: 1, type: "single" },
+            { q: "Mengapa perbedaan keragaman suku, bahasa, dan agama di Indonesia harus disikapi dengan toleransi dan semangat gotong royong?", options: ["Agar terbentuk satu bahasa yang benar-benar baru", "Karena keragaman adalah sumber kekuatan bangsa, bukan pemecah belah", "Untuk memisahkan diri dari pengaruh globalisasi", "Supaya bangsa Indonesia diakui oleh Perserikatan Bangsa-Bangsa"], ans: 1, type: "single" },
+            { q: "Karakter <em>benevolence</em> (kebajikan) yang penting dimiliki generasi muda untuk menjaga persatuan ditunjukkan dengan ciri...", options: ["Bersikap masa bodoh terhadap masalah orang lain", "Memilih teman hanya dari kalangan elite", "Senang menolong, peduli, dan tidak membeda-bedakan sesama", "Mengutamakan keuntungan pribadi dalam setiap organisasi"], ans: 2, type: "single" },
+            { q: "Menjaga keutuhan wilayah NKRI tidak hanya dari ancaman militer. Ancaman kerusakan lingkungan seperti deforestasi dapat melemahkan negara. Untuk itu, peran pemuda adalah...", options: ["Ikut melakukan penebangan liar untuk mencari dana", "Melakukan kampanye dan aksi nyata menjaga kelestarian lingkungan", "Menyalahkan pemerintah atas semua masalah alam", "Menghindari diskusi tentang isu lingkungan hidup"], ans: 1, type: "single" },
+            { q: "Blok Minyak dan Gas East Natuna merupakan kekayaan alam yang diincar banyak pihak karena...", options: ["Menjadi jalur utama perompak internasional", "Merupakan daerah wisata bahari terbesar di dunia", "Menyimpan cadangan gas alam kotor dan bersih yang sangat besar", "Berbatasan langsung dengan daratan benua Australia"], ans: 2, type: "single" },
+            { q: "Berpartisipasi aktif dalam menolong masyarakat yang mengalami kesulitan (misalnya korban bencana) merupakan pencerminan sikap membela negara dari ancaman...", options: ["Serangan militer asing", "Krisis sosial dan kemiskinan", "Perkembangan teknologi", "Persaingan pasar bebas"], ans: 1, type: "single" },
+            { q: "Pengelolaan wilayah dan kekayaan alam untuk kemakmuran rakyat akan tercapai apabila...", options: ["Dikelola sepenuhnya oleh pihak asing", "Pemerintah dan rakyat bekerja sama dengan prinsip berkelanjutan", "Kekayaan alam dibiarkan tanpa dimanfaatkan sama sekali", "Daerah kaya sumber daya memisahkan diri dari pusat"], ans: 1, type: "single" },
+            { q: "Pembuatan mural bertema keberagaman oleh kelompok seniman di ruang publik memiliki tujuan untuk...", options: ["Merusak fasilitas publik yang ada", "Menurunkan nilai estetika kota", "Menyampaikan pesan dan mengampanyekan pentingnya toleransi antarwarga", "Mencari popularitas kelompok semata"], ans: 2, type: "single" },
+            { q: "Berdasarkan kebijakan pertahanan negara, salah satu tantangan lingkungan strategis di level global adalah...", options: ["Perbedaan ideologi partai politik di Indonesia", "Persaingan kekuatan negara-negara besar di dunia", "Adanya kebijakan otonomi daerah", "Kemacetan di kota-kota besar"], ans: 1, type: "single" },
+            { q: "Pulau Sumatera merupakan wilayah dengan sebaran penduduk terbesar...", options: ["Pertama di Indonesia", "Kedua di Indonesia", "Ketiga di Indonesia", "Keempat di Indonesia"], ans: 1, type: "single" },
+            { q: "Apabila sebuah negara tidak mampu mengamankan perbatasannya, maka risiko yang paling besar terjadi adalah...", options: ["Harga barang pokok menjadi lebih murah", "Terjadinya pelanggaran kedaulatan dan pencurian sumber daya alam", "Meningkatnya devisa dari sektor pariwisata", "Masyarakat perbatasan akan hidup lebih makmur mandiri"], ans: 1, type: "single" },
+            { q: "Cita-cita mewujudkan negara kebangsaan yang demokratis dari Sabang sampai Merauke dilandasi oleh falsafah...", options: ["Pancasila", "Deklarasi Djuanda", "Perjanjian Roem-Royen", "Konferensi Meja Bundar"], ans: 0, type: "single" },
+            { q: "Dalam era pergaulan internasional, kecurigaan antarwarga dunia atau antarsuku dapat dikikis melalui...", options: ["Membuat benteng pertahanan isolasi", "Menghapus identitas nasional", "Memperluas pertemanan dan pertukaran pengetahuan secara positif", "Menggunakan satu bahasa asing sebagai bahasa ibu"], ans: 2, type: "single" },
+            { q: "Wilayah perairan timur laut Natuna sering bersinggungan dengan klaim sepihak suatu negara yang dikenal dengan istilah...", options: ["Exclusive Economic Zone (EEZ)", "Nine-dash line (sembilan garis putus-putus)", "Garis Wallace", "Garis Weber"], ans: 1, type: "single" },
+            { q: "Salah satu pilar yang menjadi ciri khas bangsa Indonesia dalam mempertahankan persatuan dan keragaman adalah...", options: ["Monarki Konstitusional", "Bhinneka Tunggal Ika", "Sistem Federalisme", "Individualisme"], ans: 1, type: "single" },
+            { q: "Berdasarkan data Badan Pusat Statistik tahun 2021, luas keseluruhan daratan Indonesia melingkupi sekitar...", options: ["1 juta km²", "Hampir 2 juta km²", "3 juta km²", "4 juta km²"], ans: 1, type: "single" },
+            { q: "Petugas yang memiliki kewenangan berpatroli menjaga keamanan perairan (seperti di Blok Tuna, Laut Natuna) adalah...", options: ["Polisi Lalu Lintas", "Badan Keamanan Laut (Bakamla) RI", "Satuan Polisi Pamong Praja", "Badan SAR Nasional"], ans: 1, type: "single" },
+            { q: "Tujuan dari 'mencerdaskan kehidupan bangsa' pada hakikatnya juga akan bermuara pada kuatnya pertahanan negara, karena...", options: ["Warga yang cerdas tidak akan peduli pada negara", "SDM yang cerdas mampu menjaga, mengelola, dan mempertahankan negaranya dari berbagai ancaman", "Pendidikan hanya difokuskan untuk mencari pekerjaan di luar negeri", "Negara butuh banyak orang pintar untuk diekspor ke negara asing"], ans: 1, type: "single" },
+            { q: "Pada sebelah barat, wilayah negara Indonesia berbatasan dengan...", options: ["Papua Nugini", "Laut Cina Selatan", "Samudera Hindia", "Samudera Pasifik"], ans: 2, type: "single" },
+            { q: "Perwujudan partisipasi warga negara dalam pertahanan negara dapat dilakukan seorang siswa dengan cara...", options: ["Menjauhi segala bentuk organisasi di sekolah", "Membantu mengamankan lingkungan sekolah dan belajar dengan giat", "Menjaga perbatasan negara dengan membawa senjata", "Meminta perlindungan dari polisi secara pribadi 24 jam"], ans: 1, type: "single" },
+            { q: "Untuk menghadapi persebaran fasilitas publik yang belum merata, pemerintah menjalankan kebijakan...", options: ["Menghentikan pembangunan di luar pulau Jawa", "Pembangunan infrastruktur yang berkeadilan di berbagai wilayah", "Meminta rakyat membangun fasilitasnya sendiri", "Menurunkan pajak bagi warga kota besar saja"], ans: 1, type: "single" },
+            { q: "Apa arti 'tanah air' dalam konteks negara kepulauan seperti Indonesia?", options: ["Hanya daratan tempat penduduk tinggal", "Hanya laut yang mengelilingi pulau-pulau", "Kesatuan wilayah daratan dan perairan (lautan) yang tidak terpisahkan", "Wilayah pegunungan dan hutan"], ans: 2, type: "single" },
+            { q: "Rasa cinta tanah air perlu ditanamkan sejak dini. Tindakan yang mencerminkan kecintaan terhadap keutuhan wilayah adalah...", options: ["Menganggap budaya daerahnya lebih tinggi dari budaya daerah lain", "Bangga menggunakan produk dalam negeri dan mempelajari budaya daerah lain", "Mengeksploitasi alam demi kepentingan pribadi", "Menyebarkan ujaran kebencian di media sosial"], ans: 1, type: "single" },
+            { q: "Semboyan Bhinneka Tunggal Ika menginspirasi rakyat Indonesia untuk...", options: ["Menjadikan perbedaan sebagai alasan pemisahan wilayah", "Menjaga persatuan dan kesatuan bangsa di tengah perbedaan", "Menyeragamkan seluruh bahasa daerah menjadi satu bahasa lokal saja", "Menolak segala bentuk budaya yang masuk ke desa"], ans: 1, type: "single" },
+            { q: "Apabila ada sekelompok orang yang ingin merusak fasilitas umum, sikap kita sebagai warga yang mencintai NKRI adalah...", options: ["Ikut membantu agar cepat selesai", "Mencegah, menegur, dan melaporkan ke pihak berwenang", "Memotret dan menertawakan saja", "Mengabaikan karena bukan milik pribadi"], ans: 1, type: "single" },
+            { q: "Lagu kebangsaan atau lagu wajib nasional yang liriknya menegaskan keutuhan wilayah Indonesia yang 'berjajar pulau-pulau' adalah...", options: ["Indonesia Raya", "Padamu Negeri", "Dari Sabang Sampai Merauke", "Berkibarlah Benderaku"], ans: 2, type: "single" },
+            { q: "Sishankamrata bermakna bahwa kekuatan pertahanan bertumpu pada...", options: ["Teknologi nuklir yang dimiliki negara", "TNI dan Polri sebagai kekuatan utama, serta rakyat sebagai kekuatan pendukung", "Rakyat sipil sebagai kekuatan tempur utama", "Pasukan perdamaian dari negara asing"], ans: 1, type: "single" },
+            { q: "Menjaga keutuhan NKRI berarti menjaga keselamatan bangsa dari...", options: ["Perubahan musim", "Ancaman dan gangguan baik dari dalam maupun luar negeri", "Kegiatan ekspor-impor antaranegara", "Kemajuan teknologi informasi"], ans: 1, type: "single" },
+            { q: "Kebijakan pemberian akses kesehatan, jalan, dan jembatan di daerah terpencil adalah bentuk pengamalan Pancasila untuk menguatkan persatuan, khususnya sila...", options: ["Pertama", "Kedua", "Keempat", "Kelima"], ans: 3, type: "single" },
+            { q: "Ketidakstabilan isu regional seperti konflik Semenanjung Korea atau geopolitik Laut Cina Selatan dapat mempengaruhi Indonesia. Oleh karena itu, Indonesia harus...", options: ["Ikut berperang membantu salah satu pihak", "Bersikap waspada dan memperkuat ketahanan nasional", "Memutuskan hubungan diplomatik dengan semua pihak yang berkonflik", "Meminta perlindungan pangkalan militer asing"], ans: 1, type: "single" },
+            { q: "Memanfaatkan pergaulan luas (termasuk internet) secara positif bagi pelajar untuk NKRI dapat berupa...", options: ["Menyebarkan hoaks tentang kondisi negara", "Mempromosikan keindahan alam dan kekayaan budaya Indonesia ke dunia", "Meretas situs-situs milik pemerintah", "Menghina ideologi bangsa lain"], ans: 1, type: "single" },
+            { q: "Sebagai negara hukum, penegakan kedaulatan di laut dilakukan jika ada kapal asing yang masuk tanpa izin dengan tujuan mencuri ikan, maka tindakan tegas negara adalah...", options: ["Menjual ikan bersama-sama kapal tersebut", "Melakukan penangkapan dan proses hukum sesuai kedaulatan NKRI", "Membiarkan asal mereka membayar pajak", "Melarang nelayan lokal melaut"], ans: 1, type: "single" },
+            { q: "Untuk menanamkan toleransi, gotong royong, dan cinta kasih antarwarga, tindakan pencegahan konflik yang sangat efektif dilakukan di lingkungan masyarakat adalah...", options: ["Membuat acara dialog antarwarga dan kegiatan kerja bakti", "Membuat peraturan ketat tanpa sosialisasi", "Membangun pagar tinggi di tiap rumah", "Memisahkan tempat tinggal berdasarkan suku"], ans: 0, type: "single" },
+            { q: "Menjaga alam dan lingkungan sekitar merupakan wujud...", options: ["Mencari keuntungan isidental", "Komitmen menjaga NKRI di level komunitas", "Kewajiban pemerintah pusat semata", "Menghambat proses industrialisasi"], ans: 1, type: "single" }
+        ];
+
+        // Utility: Acak Array (Fisher-Yates)
+        const shuffleArray = (array) => {
+            let arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        };
+
+        const App = () => {
+            const [step, setStep] = useState('login'); // login, test, submitting, result
+            const [student, setStudent] = useState({ nama: '', kelas: '', tanggal: '' });
+            const [questions, setQuestions] = useState([]);
+            const [currentIndex, setCurrentIndex] = useState(0);
+            const [answers, setAnswers] = useState({});
+            const [timeLeft, setTimeLeft] = useState(90 * 60); // 90 menit
+            const [cheatCount, setCheatCount] = useState(0);
+            const [score, setScore] = useState(0);
+            const [finalStatus, setFinalStatus] = useState("");
+
+            // Setup Ujian: Acak Soal & Opsi saat login berhasil
+            const startTest = (e) => {
+                e.preventDefault();
+                if (!student.nama || !student.kelas || !student.tanggal) {
+                    alert("Harap lengkapi semua data!"); return;
+                }
+
+                // Acak urutan soal
+                let shuffledQuestions = shuffleArray(questionsData).map((q, index) => {
+                    // Simpan teks jawaban yang benar
+                    const correctAnswerText = q.options[q.ans];
+                    // Acak opsi
+                    const shuffledOptions = shuffleArray(q.options);
+                    return {
+                        id: index,
+                        q: q.q,
+                        options: shuffledOptions,
+                        correctOptionText: correctAnswerText,
+                        type: q.type
+                    };
+                });
+
+                setQuestions(shuffledQuestions);
+                setStep('test');
+            };
+
+            // Anti-Cheat: Deteksi Pindah Tab
+            useEffect(() => {
+                if (step !== 'test') return;
+
+                const handleVisibilityChange = () => {
+                    if (document.hidden) {
+                        setCheatCount(prev => {
+                            const newCount = prev + 1;
+                            if (newCount === 1) {
+                                alert("PERINGATAN (1/2): Anda terdeteksi meninggalkan layar ujian! Jika mengulanginya, ujian akan otomatis diselesaikan.");
+                            } else if (newCount >= 2) {
+                                alert("PELANGGARAN KEDUA (2/2): Anda telah meninggalkan layar ujian lebih dari batas yang diizinkan. Ujian diakhiri otomatis.");
+                                submitTest("Diskualifikasi (Cheat/Pindah Tab)", newCount);
+                            }
+                            return newCount;
+                        });
+                    }
+                };
+
+                document.addEventListener("visibilitychange", handleVisibilityChange);
+                return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+            }, [step, answers]);
+
+            // Timer
+            useEffect(() => {
+                if (step !== 'test') return;
+                if (timeLeft <= 0) {
+                    submitTest("Waktu Habis", cheatCount);
+                    return;
+                }
+                const timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
+                return () => clearInterval(timer);
+            }, [step, timeLeft]);
+
+            const formatTime = (seconds) => {
+                const h = Math.floor(seconds / 3600);
+                const m = Math.floor((seconds % 3600) / 60);
+                const s = seconds % 60;
+                return `${h > 0 ? h + ':' : ''}${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            };
+
+            const handleAnswer = (qId, optionText) => {
+                setAnswers(prev => ({ ...prev, [qId]: optionText }));
+            };
+
+            const submitTest = (statusOverride = "", currentCheat = cheatCount) => {
+                setStep('submitting');
+                
+                // Hitung Skor (Pilihan Ganda Biasa)
+                let correctCount = 0;
+                questions.forEach(q => {
+                    if (answers[q.id] === q.correctOptionText) correctCount++;
+                });
+                
+                // Konversi 0-100 (jika 50 soal, tiap soal 2 poin)
+                const finalScore = (correctCount / questions.length) * 100;
+                setScore(finalScore);
+                
+                const status = statusOverride || "Selesai Normal";
+                setFinalStatus(status);
+
+                const payload = {
+                    Timestamp: new Date().toLocaleString("id-ID"),
+                    Nama: student.nama,
+                    Kelas: student.kelas,
+                    TanggalUjian: student.tanggal,
+                    Skor: finalScore,
+                    Pelanggaran: currentCheat,
+                    KeteranganSelesai: status
+                };
+
+                fetch(GOOGLE_SHEETS_WEB_APP_URL, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).then(() => {
+                    setStep('result');
+                }).catch(err => {
+                    console.error("Error submitting:", err);
+                    setStep('result');
+                });
+            };
+
+            if (step === 'login') {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4">
+                        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border-t-4 border-blue-600">
+                            <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Aplikasi CBT</h2>
+                            <p className="text-center text-gray-500 mb-6 font-semibold">Penilaian Kompetensi Bab 5<br/>Pendidikan Pancasila - Kelas IX</p>
+                            <form onSubmit={startTest} className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Nama Lengkap</label>
+                                    <input type="text" required className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 outline-none" 
+                                        value={student.nama} onChange={e => setStudent({...student, nama: e.target.value})} placeholder="Masukkan Nama Lengkap" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Kelas</label>
+                                    <input type="text" required className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 outline-none" 
+                                        value={student.kelas} onChange={e => setStudent({...student, kelas: e.target.value})} placeholder="Contoh: IX-A" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Tanggal Ujian</label>
+                                    <input type="date" required className="mt-1 w-full p-2 border border-gray-300 rounded focus:ring-blue-500 focus:border-blue-500 outline-none" 
+                                        value={student.tanggal} onChange={e => setStudent({...student, tanggal: e.target.value})} />
+                                </div>
+                                <div className="bg-yellow-50 p-3 rounded text-sm text-yellow-800 border border-yellow-200">
+                                    <i className="fa-solid fa-triangle-exclamation mr-2"></i><b>Aturan:</b> Waktu 90 Menit. Jangan keluar dari mode layar ujian / pindah tab. Pelanggaran 2x ujian otomatis dibatalkan.
+                                </div>
+                                <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded hover:bg-blue-700 transition">
+                                    Mulai Ujian
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (step === 'submitting') {
+                return (
+                    <div className="min-h-screen flex flex-col items-center justify-center p-4">
+                        <i className="fa-solid fa-spinner fa-spin text-5xl text-blue-600 mb-4"></i>
+                        <h2 className="text-xl font-bold">Menyimpan Jawaban...</h2>
+                        <p className="text-gray-500">Mohon tunggu, jangan tutup halaman ini.</p>
+                    </div>
+                );
+            }
+
+            if (step === 'result') {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-4">
+                        <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md text-center border-t-4 border-green-500">
+                            <i className="fa-solid fa-circle-check text-6xl text-green-500 mb-4"></i>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-2">Ujian Selesai!</h2>
+                            <p className="text-gray-600 mb-6">Terima kasih, <b>{student.nama}</b>. Jawaban Anda telah tersimpan ke database.</p>
+                            
+                            <div className="bg-gray-100 p-4 rounded-lg mb-6 text-left space-y-2">
+                                <p><b>Status:</b> {finalStatus}</p>
+                                <p><b>Pelanggaran:</b> {cheatCount} kali</p>
+                                {/* Opsi: Skor bisa disembunyikan jika tidak ingin ditampilkan ke siswa */}
+                                <p><b>Nilai:</b> {score.toFixed(2)}</p>
+                            </div>
+                            
+                            <button onClick={() => window.location.reload()} className="bg-gray-800 text-white px-6 py-2 rounded hover:bg-gray-900 transition">
+                                Kembali ke Awal
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            // --- Tampilan Test ---
+            const currentQuestion = questions[currentIndex];
+
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row bg-gray-100">
+                    {/* Main Content: Soal */}
+                    <div className="flex-1 p-4 md:p-8 flex flex-col h-screen overflow-y-auto">
+                        <div className="bg-white rounded-lg shadow p-4 mb-4 flex justify-between items-center border-b-4 border-blue-500">
+                            <div>
+                                <h1 className="font-bold text-lg text-gray-800">Pendidikan Pancasila Bab 5</h1>
+                                <p className="text-sm text-gray-500">{student.nama} | {student.kelas}</p>
+                            </div>
+                            <div className={`font-mono text-xl font-bold px-4 py-2 rounded ${timeLeft < 300 ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                                <i className="fa-regular fa-clock mr-2"></i>{formatTime(timeLeft)}
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow p-6 flex-1 mb-4 flex flex-col">
+                            <div className="flex justify-between items-start mb-6">
+                                <h2 className="text-xl font-bold">Soal Nomor {currentIndex + 1}</h2>
+                            </div>
+                            
+                            {/* Render Soal HTML Support */}
+                            <div className="text-lg text-gray-800 mb-6 leading-relaxed" dangerouslySetInnerHTML={{ __html: currentQuestion.q }}></div>
+
+                            {/* Opsi Jawaban: Fleksibel untuk Single/Multi/dll (Diimplementasikan Single/Radio untuk data PDF) */}
+                            <div className="space-y-3 flex-1">
+                                {currentQuestion.options.map((opt, idx) => {
+                                    const isSelected = answers[currentQuestion.id] === opt;
+                                    return (
+                                        <label key={idx} className={`flex items-start p-4 border rounded-lg cursor-pointer transition ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                            <input 
+                                                type={currentQuestion.type === "multi" ? "checkbox" : "radio"} 
+                                                name={`q-${currentQuestion.id}`}
+                                                className="mt-1 mr-3 h-5 w-5 text-blue-600"
+                                                checked={isSelected}
+                                                onChange={() => handleAnswer(currentQuestion.id, opt)}
+                                            />
+                                            <span dangerouslySetInnerHTML={{ __html: opt }}></span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Navigasi Bawah */}
+                            <div className="mt-8 pt-4 border-t flex justify-between">
+                                <button 
+                                    onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+                                    disabled={currentIndex === 0}
+                                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded font-semibold disabled:opacity-50"
+                                >
+                                    <i className="fa-solid fa-chevron-left mr-2"></i>Sebelumnya
+                                </button>
+                                
+                                {currentIndex === questions.length - 1 ? (
+                                    <button onClick={() => { if(confirm("Apakah Anda yakin ingin menyelesaikan ujian?")) submitTest(); }} className="px-6 py-2 bg-green-600 text-white rounded font-semibold hover:bg-green-700">
+                                        Selesai Ujian <i className="fa-solid fa-check ml-2"></i>
+                                    </button>
+                                ) : (
+                                    <button 
+                                        onClick={() => setCurrentIndex(prev => Math.min(questions.length - 1, prev + 1))}
+                                        className="px-6 py-2 bg-blue-600 text-white rounded font-semibold hover:bg-blue-700"
+                                    >
+                                        Selanjutnya <i className="fa-solid fa-chevron-right ml-2"></i>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sidebar: Grid Navigasi */}
+                    <div className="w-full md:w-80 bg-white shadow-xl p-6 flex flex-col h-auto md:h-screen overflow-y-auto z-10 border-l">
+                        <h3 className="font-bold text-gray-800 mb-4 pb-2 border-b">Navigasi Soal</h3>
+                        <div className="grid grid-cols-5 gap-2 mb-8">
+                            {questions.map((q, i) => {
+                                const isAnswered = answers[q.id] !== undefined;
+                                const isActive = currentIndex === i;
+                                let classes = 'grid-btn ';
+                                if (isAnswered) classes += 'answered ';
+                                else classes += 'unanswered ';
+                                if (isActive) classes += 'active ';
+
+                                return (
+                                    <button key={q.id} onClick={() => setCurrentIndex(i)} className={classes}>
+                                        {i + 1}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mt-auto space-y-2 text-sm border-t pt-4">
+                            <div className="flex items-center"><div className="w-4 h-4 bg-green-500 rounded mr-2"></div> Sudah Dijawab</div>
+                            <div className="flex items-center"><div className="w-4 h-4 bg-gray-200 border rounded mr-2"></div> Belum Dijawab</div>
+                            <div className="flex items-center"><div className="w-4 h-4 border-2 border-blue-500 rounded mr-2"></div> Posisi Saat Ini</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
