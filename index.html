@@ -42,6 +42,16 @@
         const EXAM_DURATION_MINUTES = 90;
         const STORAGE_KEY = "cbt_pancasila_ix_bab5_v1";
 
+        // --- HELPER FUNCTION: Fisher-Yates Shuffle untuk acak urutan yang adil ---
+        const shuffleArray = (array) => {
+            let shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        };
+
         // --- DATA SOAL (EKSTRAKSI PDF) ---
         const questionsData = [
             { id: 1, type: 'mc', question: "Menjaga keutuhan wilayah Negara Kesatuan Republik Indonesia (NKRI) merupakan tanggung jawab dari...", options: ["Tentara Nasional Indonesia (TNI) saja", "Pemerintah pusat dan pemerintah daerah", "Kepolisian Negara Republik Indonesia (Polri)", "Seluruh warga negara tanpa terkecuali"], correct: 3 },
@@ -134,7 +144,7 @@
                     // Sync to LocalStorage
                     const session = {
                         student,
-                        shuffledQuestions,
+                        shuffledQuestions, // Includes individually shuffled options 
                         userAnswers,
                         timeLeft,
                         violations,
@@ -193,8 +203,30 @@
                     alert("Harap lengkapi data diri!");
                     return;
                 }
-                const shuffled = [...questionsData].sort(() => Math.random() - 0.5);
-                setShuffledQuestions(shuffled);
+                
+                // 1. Acak urutan pertanyaan
+                const shuffledQs = shuffleArray(questionsData).map(q => {
+                    // 2. Acak opsi jawaban di dalam setiap pertanyaan
+                    // Simpan index original untuk mengetahui mana jawaban yang benar
+                    const optionsWithTracker = q.options.map((optText, originalIndex) => ({
+                        text: optText,
+                        isCorrect: originalIndex === q.correct
+                    }));
+                    
+                    // Lakukan pengacakan opsi
+                    const shuffledOptions = shuffleArray(optionsWithTracker);
+                    
+                    // Temukan index baru dari opsi jawaban yang benar setelah diacak
+                    const newCorrectIndex = shuffledOptions.findIndex(opt => opt.isCorrect);
+                    
+                    return {
+                        ...q,
+                        options: shuffledOptions.map(opt => opt.text),
+                        correct: newCorrectIndex
+                    };
+                });
+
+                setShuffledQuestions(shuffledQs);
                 setUserAnswers({});
                 setTimeLeft(EXAM_DURATION_MINUTES * 60);
                 setViolations(0);
@@ -222,6 +254,7 @@
                 // Calculate Score
                 let scoreCount = 0;
                 shuffledQuestions.forEach((q) => {
+                    // Karena kita sudah mengupdate 'q.correct' saat pengacakan, logika ini tetap valid
                     if (userAnswers[q.id] === q.correct) {
                         scoreCount++;
                     }
@@ -310,7 +343,7 @@
                                 >
                                     MULAI UJIAN
                                 </button>
-                                <p className="text-[10px] text-center text-slate-400 mt-4">Ujian akan berjalan dalam mode Layar Penuh (Fullscreen)</p>
+                                <p className="text-[10px] text-center text-slate-400 mt-4">Ujian akan berjalan dalam mode Layar Penuh (Fullscreen)<br/>Urutan Soal & Pilihan Jawaban diacak secara otomatis.</p>
                             </div>
                         </div>
                     </div>
